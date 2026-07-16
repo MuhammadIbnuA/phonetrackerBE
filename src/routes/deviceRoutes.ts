@@ -7,6 +7,7 @@ import {
   locations,
   message,
   messageSchema,
+  me,
   pendingCommands,
   register,
   registerDeviceSchema,
@@ -25,6 +26,7 @@ export const deviceRoutes = Router();
 
 deviceRoutes.post("/register", validateBody(registerDeviceSchema), register);
 deviceRoutes.post("/heartbeat", deviceAuth, validateBody(heartbeatSchema), heartbeat);
+deviceRoutes.get("/me", deviceAuth, me);
 deviceRoutes.get("/commands/pending", deviceAuth, pendingCommands);
 deviceRoutes.post("/commands/:commandId/ack", deviceAuth, acknowledgeCommand);
 deviceRoutes.get("/", adminAuth, list);

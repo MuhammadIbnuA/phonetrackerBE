@@ -85,6 +85,15 @@ export const heartbeat: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const me: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.device) throw new HttpError(401, "Missing device credentials");
+    res.json(await getDevice(req.device.id));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createLocation: RequestHandler = async (req, res, next) => {
   try {
     if (!req.device) {
