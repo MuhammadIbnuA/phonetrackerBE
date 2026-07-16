@@ -9,6 +9,7 @@ import { deviceAuth } from "./middleware/deviceAuth.js";
 import { validateBody } from "./middleware/validate.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { deviceRoutes } from "./routes/deviceRoutes.js";
+import { personalRoutes } from "./routes/personalRoutes.js";
 
 export const app = express();
 
@@ -28,6 +29,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/devices", deviceRoutes);
+app.use("/api", personalRoutes);
 app.post("/api/locations", deviceAuth, validateBody(locationSchema), createLocation);
 
 app.use(errorHandler);

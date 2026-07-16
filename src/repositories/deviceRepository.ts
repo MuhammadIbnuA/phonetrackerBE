@@ -240,6 +240,7 @@ export async function createCommand(deviceId: string, input: CommandInput): Prom
 }
 
 export async function listPendingCommands(deviceId: string): Promise<DeviceCommandRecord[]> {
+  await queueDueAlarms(deviceId);
   const { data, error } = await supabase
     .from("device_commands")
     .select("*")
@@ -268,6 +269,28 @@ export async function listPendingCommands(deviceId: string): Promise<DeviceComma
   }
 
   return commands;
+}
+
+async function queueDueAlarms(deviceId: string): Promise<void> {
+  const { data: alarms, error } = await supabase.from("alarms").select("*").eq("enabled", true);
+  if (error) raise(error, "Unable to load alarms");
+  const now = new Date();
+  for (const alarm of alarms ?? []) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: alarm.timezone ?? "Asia/Jakarta",
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+    }).formatToParts(now).reduce<Record<string, string>>((result, part) => { result[part.type] = part.value; return result; }, {});
+    const dateKey = `${parts.year}-${parts.month}-${parts.day}`;
+    const currentTime = `${parts.hour}:${parts.minute}`;
+    const due = alarm.alarm_mode === "daily"
+      ? Boolean(alarm.alarm_time && currentTime >= String(alarm.alarm_time).slice(0, 5))
+      : Boolean(alarm.scheduled_at && new Date(alarm.scheduled_at) <= now);
+    if (!due) continue;
+    const occurrenceKey = alarm.alarm_mode === "daily" ? dateKey : String(alarm.scheduled_at);
+    const { data: delivery, error: deliveryError } = await supabase.from("alarm_deliveries").insert({ alarm_id: alarm.id, device_id: deviceId, occurrence_key: occurrenceKey }).select("id").maybeSingle();
+    if (deliveryError || !delivery) continue;
+    await createCommand(deviceId, { commandType: "ring", durationSeconds: 10, title: alarm.title, body: alarm.message, payload: { alarmId: alarm.id, occurrenceKey } });
+  }
 }
 
 export async function acknowledgeCommand(deviceId: string, commandId: string): Promise<DeviceCommandRecord> {
