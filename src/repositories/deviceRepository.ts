@@ -16,6 +16,8 @@ type TelemetryInput = {
   networkType?: string;
   hasInternet?: boolean;
   recordedAt?: string;
+  geofenceState?: "unknown" | "inside" | "outside";
+  geofenceEvent?: "entered" | "exited";
 };
 
 type CommandInput = {
@@ -106,6 +108,46 @@ export async function updateHeartbeat(deviceId: string, input: TelemetryInput): 
   return data as DeviceRecord;
 }
 
+export async function updateTrackingInterval(deviceId: string, seconds: number): Promise<DeviceRecord> {
+  const { data, error } = await supabase
+    .from("devices")
+    .update({ tracking_interval_seconds: seconds, updated_at: new Date().toISOString() })
+    .eq("id", deviceId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    raise(error, "Unable to update tracking interval");
+  }
+
+  return data as DeviceRecord;
+}
+
+export async function updateGeofence(deviceId: string, input: {
+  geofenceEnabled: boolean;
+  minLatitude: number | null;
+  maxLatitude: number | null;
+  minLongitude: number | null;
+  maxLongitude: number | null;
+}): Promise<DeviceRecord> {
+  const { data, error } = await supabase
+    .from("devices")
+    .update({
+      geofence_enabled: input.geofenceEnabled,
+      geofence_min_latitude: input.minLatitude,
+      geofence_max_latitude: input.maxLatitude,
+      geofence_min_longitude: input.minLongitude,
+      geofence_max_longitude: input.maxLongitude,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", deviceId)
+    .select("*")
+    .single();
+
+  if (error || !data) raise(error, "Unable to update geofence");
+  return data as DeviceRecord;
+}
+
 export async function insertLocation(deviceId: string, input: Required<TelemetryInput>): Promise<DeviceLocationRecord> {
   const now = new Date().toISOString();
 
@@ -128,9 +170,7 @@ export async function insertLocation(deviceId: string, input: Required<Telemetry
     raise(error, "Unable to insert location");
   }
 
-  const { error: updateError } = await supabase
-    .from("devices")
-    .update({
+  const latestUpdate: Record<string, unknown> = {
       last_latitude: input.latitude,
       last_longitude: input.longitude,
       accuracy: input.accuracy,
@@ -139,7 +179,13 @@ export async function insertLocation(deviceId: string, input: Required<Telemetry
       has_internet: input.hasInternet,
       last_seen_at: now,
       updated_at: now
-    })
+  };
+  if (input.geofenceState) latestUpdate.geofence_state = input.geofenceState;
+  if (input.geofenceEvent) latestUpdate.geofence_last_event = input.geofenceEvent;
+
+  const { error: updateError } = await supabase
+    .from("devices")
+    .update(latestUpdate)
     .eq("id", deviceId);
 
   if (updateError) {

@@ -11,7 +11,9 @@ import {
   listDevices,
   listPendingCommands,
   listLocations,
-  updateHeartbeat
+  updateHeartbeat,
+  updateTrackingInterval,
+  updateGeofence
 } from "../repositories/deviceRepository.js";
 import type { DeviceRecord } from "../types.js";
 import { getDeviceStatus } from "../utils/deviceStatus.js";
@@ -25,6 +27,8 @@ type TelemetryInput = {
   networkType?: string;
   hasInternet?: boolean;
   recordedAt?: string;
+  geofenceState?: "unknown" | "inside" | "outside";
+  geofenceEvent?: "entered" | "exited";
 };
 
 function publicDevice(device: DeviceRecord) {
@@ -39,6 +43,14 @@ function publicDevice(device: DeviceRecord) {
     network_type: device.network_type,
     has_internet: device.has_internet,
     tracking_enabled: device.tracking_enabled,
+    tracking_interval_seconds: device.tracking_interval_seconds,
+    geofence_enabled: device.geofence_enabled,
+    geofence_min_latitude: device.geofence_min_latitude,
+    geofence_max_latitude: device.geofence_max_latitude,
+    geofence_min_longitude: device.geofence_min_longitude,
+    geofence_max_longitude: device.geofence_max_longitude,
+    geofence_state: device.geofence_state,
+    geofence_last_event: device.geofence_last_event,
     last_seen_at: device.last_seen_at,
     created_at: device.created_at,
     updated_at: device.updated_at,
@@ -79,6 +91,28 @@ export async function verifyDeviceToken(deviceId: string, token: string): Promis
 export async function saveHeartbeat(deviceId: string, input: TelemetryInput) {
   const device = await updateHeartbeat(deviceId, input);
   return publicDevice(device);
+}
+
+export async function setTrackingSettings(deviceId: string, input: {
+  trackingIntervalSeconds: number;
+  geofenceEnabled: boolean;
+  minLatitude: number | null;
+  maxLatitude: number | null;
+  minLongitude: number | null;
+  maxLongitude: number | null;
+}) {
+  await getDevice(deviceId);
+  if (input.geofenceEnabled && (
+    input.minLatitude === null || input.maxLatitude === null ||
+    input.minLongitude === null || input.maxLongitude === null
+  )) {
+    throw new HttpError(400, "All geofence bounds are required when geofence is enabled");
+  }
+  if (input.geofenceEnabled && (input.minLatitude! > input.maxLatitude! || input.minLongitude! > input.maxLongitude!)) {
+    throw new HttpError(400, "Geofence minimum bounds must not exceed maximum bounds");
+  }
+  await updateTrackingInterval(deviceId, input.trackingIntervalSeconds);
+  return publicDevice(await updateGeofence(deviceId, input));
 }
 
 export async function saveLocation(deviceId: string, input: Required<TelemetryInput>) {

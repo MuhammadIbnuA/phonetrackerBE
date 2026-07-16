@@ -12,6 +12,7 @@ create table if not exists public.devices (
   network_type text,
   has_internet boolean,
   tracking_enabled boolean not null default false,
+  tracking_interval_seconds integer not null default 60 check (tracking_interval_seconds in (60, 300, 900, 1800, 3600)),
   last_seen_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

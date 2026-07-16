@@ -11,7 +11,8 @@ import {
   registerDevice,
   removeDevice,
   saveHeartbeat,
-  saveLocation
+  saveLocation,
+  setTrackingSettings
 } from "../services/deviceService.js";
 import { HttpError } from "../utils/httpError.js";
 
@@ -33,7 +34,9 @@ export const locationSchema = z.object({
   batteryLevel: z.number().min(0).max(100),
   networkType: z.string().max(40),
   hasInternet: z.boolean(),
-  recordedAt: z.string().datetime()
+  recordedAt: z.string().datetime(),
+  geofenceState: z.enum(["unknown", "inside", "outside"]).optional(),
+  geofenceEvent: z.enum(["entered", "exited"]).optional()
 });
 
 export const ringSchema = z.object({
@@ -43,6 +46,21 @@ export const ringSchema = z.object({
 export const messageSchema = z.object({
   title: z.string().trim().min(1).max(80),
   body: z.string().trim().min(1).max(160)
+});
+
+export const trackingSettingsSchema = z.object({
+  trackingIntervalSeconds: z.union([
+    z.literal(60),
+    z.literal(300),
+    z.literal(900),
+    z.literal(1800),
+    z.literal(3600)
+  ]),
+  geofenceEnabled: z.boolean().default(false),
+  minLatitude: z.number().min(-90).max(90).nullable().default(null),
+  maxLatitude: z.number().min(-90).max(90).nullable().default(null),
+  minLongitude: z.number().min(-180).max(180).nullable().default(null),
+  maxLongitude: z.number().min(-180).max(180).nullable().default(null)
 });
 
 export const register: RequestHandler = async (req, res, next) => {
@@ -144,6 +162,16 @@ export const message: RequestHandler = async (req, res, next) => {
       throw new HttpError(400, "Missing device id");
     }
     res.status(201).json(await queueMessageCommand(id, req.body.title, req.body.body));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTrackingSettings: RequestHandler = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    if (!id) throw new HttpError(400, "Missing device id");
+    res.json(await setTrackingSettings(id, req.body));
   } catch (error) {
     next(error);
   }

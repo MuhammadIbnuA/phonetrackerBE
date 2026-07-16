@@ -12,6 +12,14 @@ export type DeviceRecord = {
   network_type: string | null;
   has_internet: boolean | null;
   tracking_enabled: boolean;
+  tracking_interval_seconds: number;
+  geofence_enabled: boolean;
+  geofence_min_latitude: number | null;
+  geofence_max_latitude: number | null;
+  geofence_min_longitude: number | null;
+  geofence_max_longitude: number | null;
+  geofence_state: "unknown" | "inside" | "outside";
+  geofence_last_event: "entered" | "exited" | null;
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;

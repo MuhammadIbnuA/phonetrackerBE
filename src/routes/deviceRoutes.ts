@@ -13,7 +13,9 @@ import {
   remove,
   ring,
   ringSchema,
-  show
+  show,
+  trackingSettingsSchema,
+  updateTrackingSettings
 } from "../controllers/deviceController.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 import { deviceAuth } from "../middleware/deviceAuth.js";
@@ -32,3 +34,4 @@ deviceRoutes.delete("/:id", adminAuth, remove);
 deviceRoutes.post("/:id/delete", adminAuth, remove);
 deviceRoutes.post("/:id/ring", adminAuth, validateBody(ringSchema), ring);
 deviceRoutes.post("/:id/message", adminAuth, validateBody(messageSchema), message);
+deviceRoutes.patch("/:id/settings", adminAuth, validateBody(trackingSettingsSchema), updateTrackingSettings);
